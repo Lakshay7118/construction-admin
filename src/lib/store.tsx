@@ -227,6 +227,14 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
     refresh().finally(() => setReady(true));
   }, [refresh]);
 
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      if (getToken()) void refresh();
+    }, 30000);
+
+    return () => window.clearInterval(interval);
+  }, [refresh]);
+
   const runAndRefresh = useCallback(
     async (task: () => Promise<unknown>) => {
       await task();
