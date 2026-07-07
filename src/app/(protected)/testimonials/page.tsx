@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2, Pencil, Quote, Star, X, Save } from "lucide-react";
+import { Plus, Trash2, Pencil, Quote, Star, Save } from "lucide-react";
 import { useAdminData, type Testimonial } from "@/lib/store";
 import { useToast } from "@/lib/toast";
 import PageHeader from "@/components/admin/PageHeader";
 import EmptyState from "@/components/admin/EmptyState";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
+import AdminModal from "@/components/admin/AdminModal";
 import { Field, TextInput, TextArea } from "@/components/admin/Field";
 
 const empty: Testimonial = { name: "", role: "", message: "", rating: 5 };
@@ -81,16 +82,12 @@ export default function TestimonialsPage() {
         </div>
       )}
 
-      {panelIndex !== null && (
-        <div className="fixed inset-0 z-50 flex justify-end">
-          <div className="absolute inset-0 bg-charcoal/50" onClick={() => setPanelIndex(null)} />
-          <div className="relative bg-concrete w-full max-w-md h-full overflow-y-auto scroll-thin p-6 shadow-xl">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="font-display text-lg">{panelIndex === "new" ? "New testimonial" : "Edit testimonial"}</h3>
-              <button onClick={() => setPanelIndex(null)} className="p-1 text-charcoal/50 hover:text-charcoal">
-                <X size={20} />
-              </button>
-            </div>
+      <AdminModal
+        open={panelIndex !== null}
+        title={panelIndex === "new" ? "New testimonial" : "Edit testimonial"}
+        onClose={() => setPanelIndex(null)}
+        maxWidth="max-w-md"
+      >
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
               <Field label="Client name" required>
                 <TextInput required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
@@ -124,9 +121,7 @@ export default function TestimonialsPage() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </AdminModal>
 
       <ConfirmDialog
         open={pendingDelete !== null}

@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2, Pencil, Award as AwardIcon, X, Save } from "lucide-react";
+import { Plus, Trash2, Pencil, Award as AwardIcon, Save } from "lucide-react";
 import { useAdminData, type Award } from "@/lib/store";
 import { useToast } from "@/lib/toast";
 import PageHeader from "@/components/admin/PageHeader";
 import EmptyState from "@/components/admin/EmptyState";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
+import AdminModal from "@/components/admin/AdminModal";
 import { Field, TextInput } from "@/components/admin/Field";
 
 const empty: Award = { year: new Date().getFullYear().toString(), title: "", issuer: "" };
@@ -74,16 +75,12 @@ export default function AwardsPage() {
         </div>
       )}
 
-      {panelIndex !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-charcoal/50" onClick={() => setPanelIndex(null)} />
-          <div className="relative bg-concrete w-full max-w-md rounded-sm p-6 shadow-xl">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="font-display text-lg">{panelIndex === "new" ? "New award" : "Edit award"}</h3>
-              <button onClick={() => setPanelIndex(null)} className="p-1 text-charcoal/50 hover:text-charcoal">
-                <X size={20} />
-              </button>
-            </div>
+      <AdminModal
+        open={panelIndex !== null}
+        title={panelIndex === "new" ? "New award" : "Edit award"}
+        onClose={() => setPanelIndex(null)}
+        maxWidth="max-w-md"
+      >
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
               <Field label="Year" required>
                 <TextInput required value={form.year} onChange={(e) => setForm({ ...form, year: e.target.value })} />
@@ -103,9 +100,7 @@ export default function AwardsPage() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </AdminModal>
 
       <ConfirmDialog
         open={pendingDelete !== null}

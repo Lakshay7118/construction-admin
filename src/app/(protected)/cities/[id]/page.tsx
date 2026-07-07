@@ -7,6 +7,7 @@ import { ArrowLeft, Save } from "lucide-react";
 import { useAdminData, type City } from "@/lib/store";
 import { useToast } from "@/lib/toast";
 import PageHeader from "@/components/admin/PageHeader";
+import AdminModal from "@/components/admin/AdminModal";
 import { Field, TextInput, TextArea, FormSection } from "@/components/admin/Field";
 
 const emptyCity: City = { slug: "", name: "", state: "", coverImage: "", description: "", totalSqft: 0 };
@@ -45,12 +46,7 @@ export default function CityFormPage() {
   }
 
   return (
-    <div>
-      <Link href="/cities" className="text-sm text-charcoal/55 hover:text-safety-dim inline-flex items-center gap-1.5 mb-4">
-        <ArrowLeft size={15} /> Back to cities
-      </Link>
-      <PageHeader eyebrow="Content" title={isNew ? "New city" : `Edit ${existing?.name}`} />
-
+    <AdminModal title={isNew ? "New city" : `Edit ${existing?.name}`} onClose={() => router.push("/cities")} maxWidth="max-w-2xl">
       <form onSubmit={handleSubmit} className="flex flex-col gap-6 max-w-2xl">
         <FormSection title="City details">
           <div className="grid sm:grid-cols-2 gap-4">
@@ -90,6 +86,6 @@ export default function CityFormPage() {
           </Link>
         </div>
       </form>
-    </div>
+    </AdminModal>
   );
 }

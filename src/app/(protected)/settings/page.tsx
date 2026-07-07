@@ -1,16 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { Save, ShieldCheck } from "lucide-react";
+import { Pencil, Save, ShieldCheck } from "lucide-react";
 import { useAdminData } from "@/lib/store";
 import { useToast } from "@/lib/toast";
 import PageHeader from "@/components/admin/PageHeader";
+import AdminModal from "@/components/admin/AdminModal";
 import { Field, TextInput, FormSection } from "@/components/admin/Field";
 
 export default function SettingsPage() {
   const { settings, updateSettings, users, ready } = useAdminData();
   const { showToast } = useToast();
   const [form, setForm] = useState(settings);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   if (!ready) return null;
 
@@ -18,74 +20,109 @@ export default function SettingsPage() {
     e.preventDefault();
     updateSettings(form);
     showToast("Settings saved");
+    setSettingsOpen(false);
+  }
+
+  function openSettings() {
+    setForm(settings);
+    setSettingsOpen(true);
   }
 
   return (
     <div>
-      <PageHeader eyebrow="System" title="Settings" description="Company details shown across the public site." />
-
-      <form onSubmit={handleSubmit} className="flex flex-col gap-6 max-w-2xl">
-        <FormSection title="Company">
-          <div className="grid sm:grid-cols-2 gap-4">
-            <Field label="Company name" required>
-              <TextInput required value={form.companyName} onChange={(e) => setForm({ ...form, companyName: e.target.value })} />
-            </Field>
-            <Field label="Tagline" required>
-              <TextInput required value={form.tagline} onChange={(e) => setForm({ ...form, tagline: e.target.value })} />
-            </Field>
-          </div>
-          <Field label="Registered address">
-            <TextInput value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
-          </Field>
-        </FormSection>
-
-        <FormSection title="Contact">
-          <div className="grid sm:grid-cols-2 gap-4">
-            <Field label="Support email" required>
-              <TextInput required type="email" value={form.supportEmail} onChange={(e) => setForm({ ...form, supportEmail: e.target.value })} />
-            </Field>
-            <Field label="Support phone" required>
-              <TextInput required value={form.supportPhone} onChange={(e) => setForm({ ...form, supportPhone: e.target.value })} />
-            </Field>
-          </div>
-        </FormSection>
-
-        <FormSection title="Social links">
-          <Field label="Instagram">
-            <TextInput type="url" value={form.instagram} onChange={(e) => setForm({ ...form, instagram: e.target.value })} />
-          </Field>
-          <Field label="LinkedIn">
-            <TextInput type="url" value={form.linkedin} onChange={(e) => setForm({ ...form, linkedin: e.target.value })} />
-          </Field>
-          <Field label="Facebook">
-            <TextInput type="url" value={form.facebook} onChange={(e) => setForm({ ...form, facebook: e.target.value })} />
-          </Field>
-        </FormSection>
-
-        <FormSection title="Maintenance mode" description="Show a maintenance notice on the public site instead of live pages.">
-          <label className="flex items-center gap-3 cursor-pointer w-fit">
-            <span
-              onClick={() => setForm({ ...form, maintenanceMode: !form.maintenanceMode })}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                form.maintenanceMode ? "bg-safety" : "bg-charcoal/20"
-              }`}
-            >
-              <span
-                className={`inline-block h-4.5 w-4.5 transform rounded-full bg-white transition-transform ${
-                  form.maintenanceMode ? "translate-x-6" : "translate-x-1"
-                }`}
-              />
-            </span>
-            <span className="text-sm">{form.maintenanceMode ? "Enabled" : "Disabled"}</span>
-          </label>
-        </FormSection>
-
-        <div className="flex items-center gap-3">
-          <button type="submit" className="inline-flex items-center gap-2 bg-charcoal text-concrete px-5 py-2.5 text-sm font-medium hover:bg-safety transition-colors">
-            <Save size={16} /> Save settings
+      <PageHeader
+        eyebrow="System"
+        title="Settings"
+        description="Company details shown across the public site."
+        action={
+          <button onClick={openSettings} className="inline-flex items-center gap-2 bg-charcoal text-concrete px-4 py-2.5 text-sm font-medium hover:bg-safety transition-colors">
+            <Pencil size={16} /> Edit settings
           </button>
-        </div>
-      </form>
+        }
+      />
+
+      <div className="max-w-2xl bg-white border border-charcoal/12 rounded-sm divide-y divide-charcoal/8">
+        {[
+          ["Company", settings.companyName],
+          ["Tagline", settings.tagline],
+          ["Support email", settings.supportEmail],
+          ["Support phone", settings.supportPhone],
+          ["Maintenance", settings.maintenanceMode ? "Enabled" : "Disabled"],
+        ].map(([label, value]) => (
+          <div key={label} className="grid sm:grid-cols-[10rem_1fr] gap-2 px-5 py-3.5 text-sm">
+            <span className="text-charcoal/50">{label}</span>
+            <span className="font-medium">{value || "Not set"}</span>
+          </div>
+        ))}
+      </div>
+
+      <AdminModal open={settingsOpen} title="Edit settings" onClose={() => setSettingsOpen(false)} maxWidth="max-w-2xl">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+          <FormSection title="Company">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <Field label="Company name" required>
+                <TextInput required value={form.companyName} onChange={(e) => setForm({ ...form, companyName: e.target.value })} />
+              </Field>
+              <Field label="Tagline" required>
+                <TextInput required value={form.tagline} onChange={(e) => setForm({ ...form, tagline: e.target.value })} />
+              </Field>
+            </div>
+            <Field label="Registered address">
+              <TextInput value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+            </Field>
+          </FormSection>
+
+          <FormSection title="Contact">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <Field label="Support email" required>
+                <TextInput required type="email" value={form.supportEmail} onChange={(e) => setForm({ ...form, supportEmail: e.target.value })} />
+              </Field>
+              <Field label="Support phone" required>
+                <TextInput required value={form.supportPhone} onChange={(e) => setForm({ ...form, supportPhone: e.target.value })} />
+              </Field>
+            </div>
+          </FormSection>
+
+          <FormSection title="Social links">
+            <Field label="Instagram">
+              <TextInput type="url" value={form.instagram} onChange={(e) => setForm({ ...form, instagram: e.target.value })} />
+            </Field>
+            <Field label="LinkedIn">
+              <TextInput type="url" value={form.linkedin} onChange={(e) => setForm({ ...form, linkedin: e.target.value })} />
+            </Field>
+            <Field label="Facebook">
+              <TextInput type="url" value={form.facebook} onChange={(e) => setForm({ ...form, facebook: e.target.value })} />
+            </Field>
+          </FormSection>
+
+          <FormSection title="Maintenance mode" description="Show a maintenance notice on the public site instead of live pages.">
+            <label className="flex items-center gap-3 cursor-pointer w-fit">
+              <span
+                onClick={() => setForm({ ...form, maintenanceMode: !form.maintenanceMode })}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  form.maintenanceMode ? "bg-safety" : "bg-charcoal/20"
+                }`}
+              >
+                <span
+                  className={`inline-block h-4.5 w-4.5 transform rounded-full bg-white transition-transform ${
+                    form.maintenanceMode ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </span>
+              <span className="text-sm">{form.maintenanceMode ? "Enabled" : "Disabled"}</span>
+            </label>
+          </FormSection>
+
+          <div className="flex items-center gap-3">
+            <button type="submit" className="inline-flex items-center gap-2 bg-charcoal text-concrete px-5 py-2.5 text-sm font-medium hover:bg-safety transition-colors">
+              <Save size={16} /> Save settings
+            </button>
+            <button type="button" onClick={() => setSettingsOpen(false)} className="px-5 py-2.5 text-sm font-medium border border-charcoal/20 hover:bg-charcoal/[0.04] transition-colors">
+              Cancel
+            </button>
+          </div>
+        </form>
+      </AdminModal>
 
       <div className="mt-10 max-w-2xl">
         <div className="mb-4">

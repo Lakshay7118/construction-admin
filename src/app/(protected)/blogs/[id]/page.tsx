@@ -7,6 +7,7 @@ import { ArrowLeft, Save } from "lucide-react";
 import { useAdminData, type Blog } from "@/lib/store";
 import { useToast } from "@/lib/toast";
 import PageHeader from "@/components/admin/PageHeader";
+import AdminModal from "@/components/admin/AdminModal";
 import { Field, TextInput, TextArea, FormSection } from "@/components/admin/Field";
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -61,12 +62,7 @@ export default function BlogFormPage() {
   }
 
   return (
-    <div>
-      <Link href="/blogs" className="text-sm text-charcoal/55 hover:text-safety-dim inline-flex items-center gap-1.5 mb-4">
-        <ArrowLeft size={15} /> Back to journal
-      </Link>
-      <PageHeader eyebrow="Content" title={isNew ? "New post" : `Edit post`} />
-
+    <AdminModal title={isNew ? "New post" : "Edit post"} onClose={() => router.push("/blogs")} maxWidth="max-w-2xl">
       <form onSubmit={handleSubmit} className="flex flex-col gap-6 max-w-2xl">
         <FormSection title="Post details">
           <Field label="Title" required>
@@ -107,6 +103,6 @@ export default function BlogFormPage() {
           </Link>
         </div>
       </form>
-    </div>
+    </AdminModal>
   );
 }

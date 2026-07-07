@@ -18,19 +18,17 @@ export default function LoginPage() {
     if (!isLoading && isAuthenticated) router.replace("/dashboard");
   }, [isLoading, isAuthenticated, router]);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setError("");
-    setTimeout(() => {
-      const result = login(email, password);
-      if (result.ok) {
-        router.push("/dashboard");
-      } else {
-        setError(result.error ?? "Something went wrong.");
-        setSubmitting(false);
-      }
-    }, 350);
+    const result = await login(email, password);
+    if (result.ok) {
+      router.push("/dashboard");
+    } else {
+      setError(result.error ?? "Something went wrong.");
+      setSubmitting(false);
+    }
   }
 
   return (

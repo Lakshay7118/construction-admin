@@ -7,6 +7,7 @@ import { ArrowLeft, Plus, Trash2, Save } from "lucide-react";
 import { useAdminData, type Project, type ProjectType, type ProjectStatus } from "@/lib/store";
 import { useToast } from "@/lib/toast";
 import PageHeader from "@/components/admin/PageHeader";
+import AdminModal from "@/components/admin/AdminModal";
 import { Field, TextInput, TextArea, Select, FormSection } from "@/components/admin/Field";
 
 const emptyProject = (citySlug: string): Project => ({
@@ -63,16 +64,12 @@ export default function ProjectFormPage() {
   }
 
   return (
-    <div>
-      <Link href="/projects" className="text-sm text-charcoal/55 hover:text-safety-dim inline-flex items-center gap-1.5 mb-4">
-        <ArrowLeft size={15} /> Back to projects
-      </Link>
-      <PageHeader
-        eyebrow="Content"
-        title={isNew ? "New project" : `Edit ${existing?.title}`}
-        description="Changes here update the public projects page and its city page."
-      />
-
+    <AdminModal
+      title={isNew ? "New project" : `Edit ${existing?.title}`}
+      description="Changes here update the public projects page and its city page."
+      onClose={() => router.push("/projects")}
+      maxWidth="max-w-4xl"
+    >
       <form onSubmit={handleSubmit} className="flex flex-col gap-6 max-w-3xl">
         <FormSection title="Basics">
           <div className="grid sm:grid-cols-2 gap-4">
@@ -320,6 +317,6 @@ export default function ProjectFormPage() {
           </Link>
         </div>
       </form>
-    </div>
+    </AdminModal>
   );
 }

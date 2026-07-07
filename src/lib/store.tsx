@@ -1,16 +1,5 @@
 "use client";
 
-/**
- * Mock data store for the admin panel.
- *
- * This is a frontend-only stand-in for a real backend/API. Everything lives in
- * React state, seeded once from `site-data.ts` and mirrored into localStorage
- * so edits survive a page refresh during review. Swap `persist()`/the initial
- * load for real API calls when the backend is ready — the shape of
- * `AdminDataContextValue` is written to map cleanly onto REST/GraphQL calls
- * (list/create/update/remove per resource).
- */
-
 import {
   createContext,
   useCallback,
@@ -19,21 +8,18 @@ import {
   useMemo,
   useState,
 } from "react";
+import { apiFetch, getToken } from "./api";
 import {
-  cities as seedCities,
-  projects as seedProjects,
-  services as seedServices,
-  blogs as seedBlogs,
-  careers as seedCareers,
-  testimonials as seedTestimonials,
-  awards as seedAwards,
-  type City,
-  type Project,
-  type Service,
+  type Award,
   type Blog,
   type CareerPost,
+  type City,
+  type Project,
+  type ProjectStatus,
+  type ProjectType,
+  type Service,
   type Testimonial,
-  type Award,
+  type TimelineEntry,
 } from "./site-data";
 
 export type {
@@ -49,9 +35,12 @@ export type {
   TimelineEntry,
 } from "./site-data";
 
+type WithId<T> = T & { _id?: string; id?: string };
+
 export type InquiryStatus = "new" | "in-progress" | "closed";
 
 export interface Inquiry {
+  _id?: string;
   id: string;
   name: string;
   email: string;
@@ -66,6 +55,7 @@ export interface Inquiry {
 }
 
 export interface JobApplication {
+  _id?: string;
   id: string;
   careerSlug: string;
   roleTitle: string;
@@ -79,7 +69,8 @@ export interface JobApplication {
 }
 
 export interface AdminUser {
-  id: string;
+  _id?: string;
+  id?: string;
   name: string;
   email: string;
   role: "Super Admin" | "Editor" | "Viewer";
@@ -98,164 +89,52 @@ export interface SiteSettings {
   maintenanceMode: boolean;
 }
 
-const STORAGE_KEY = "kc-admin-store-v1";
-
-const seedInquiries: Inquiry[] = [
-  {
-    id: "inq-1001",
-    name: "Ananya Rao",
-    email: "ananya.rao@example.com",
-    phone: "+91 98200 11234",
-    projectType: "Residential",
-    city: "Mumbai",
-    budget: "₹2Cr - ₹5Cr",
-    message: "Looking for a turnkey quote on a 3BHK redevelopment near Bandra.",
-    status: "new",
-    createdAt: "2026-07-04T09:12:00+05:30",
-    source: "Quote Form",
-  },
-  {
-    id: "inq-1002",
-    name: "Karan Bhatt",
-    email: "karan.bhatt@builtline.co",
-    phone: "+91 90210 44521",
-    projectType: "Commercial",
-    city: "Delhi NCR",
-    budget: "₹10Cr+",
-    message: "Representing a REIT looking for design-build partners for a Grade-A office park.",
-    status: "in-progress",
-    createdAt: "2026-07-02T15:40:00+05:30",
-    source: "Quote Form",
-  },
-  {
-    id: "inq-1003",
-    name: "Priya Menon",
-    email: "priya.menon@example.com",
-    phone: "+91 88888 22110",
-    projectType: "General enquiry",
-    city: "Pune",
-    budget: "—",
-    message: "Wanted to know if you take up society redevelopment projects under 50 units.",
-    status: "closed",
-    createdAt: "2026-06-27T11:05:00+05:30",
-    source: "Contact Form",
-  },
-  {
-    id: "inq-1004",
-    name: "Devendra Joshi",
-    email: "d.joshi@ahmgroup.in",
-    phone: "+91 99900 12233",
-    projectType: "Industrial",
-    city: "Ahmedabad",
-    budget: "₹5Cr - ₹10Cr",
-    message: "Need a quote for a second phase warehousing block adjacent to our existing logistics park.",
-    status: "new",
-    createdAt: "2026-07-05T18:22:00+05:30",
-    source: "Quote Form",
-  },
-];
-
-const seedApplications: JobApplication[] = [
-  {
-    id: "app-501",
-    careerSlug: "senior-site-engineer-mumbai",
-    roleTitle: "Senior Site Engineer",
-    name: "Aditya Kulkarni",
-    email: "aditya.k@example.com",
-    phone: "+91 99887 65321",
-    resumeFileName: "aditya_kulkarni_resume.pdf",
-    coverNote: "8 years on high-rise residential sites, currently at a Mumbai-based contractor.",
-    status: "shortlisted",
-    createdAt: "2026-07-01T10:00:00+05:30",
-  },
-  {
-    id: "app-502",
-    careerSlug: "project-manager-delhi",
-    roleTitle: "Project Manager",
-    name: "Simran Kaur",
-    email: "simran.kaur@example.com",
-    phone: "+91 97710 55214",
-    resumeFileName: "simran_kaur_cv.pdf",
-    coverNote: "PMP certified, managed a 4-tower commercial delivery end to end.",
-    status: "new",
-    createdAt: "2026-07-03T13:30:00+05:30",
-  },
-  {
-    id: "app-503",
-    careerSlug: "quantity-surveyor-pune",
-    roleTitle: "Quantity Surveyor",
-    name: "Rahul Deshpande",
-    email: "rahul.d@example.com",
-    phone: "+91 90960 11122",
-    resumeFileName: "rahul_deshpande_resume.pdf",
-    coverNote: "5 years BOQ and vendor billing experience across industrial sites.",
-    status: "new",
-    createdAt: "2026-07-05T09:45:00+05:30",
-  },
-];
-
-const seedUsers: AdminUser[] = [
-  { id: "usr-1", name: "Meera Iyer", email: "meera.iyer@kalpataru.co.in", role: "Super Admin", lastActive: "2026-07-06T08:15:00+05:30" },
-  { id: "usr-2", name: "Arjun Nair", email: "arjun.nair@kalpataru.co.in", role: "Editor", lastActive: "2026-07-05T17:50:00+05:30" },
-  { id: "usr-3", name: "Fatima Sheikh", email: "fatima.sheikh@kalpataru.co.in", role: "Viewer", lastActive: "2026-07-04T12:05:00+05:30" },
-];
-
-const seedSettings: SiteSettings = {
-  companyName: "Kalpataru Constructions",
-  tagline: "Building What Lasts",
-  supportEmail: "hello@kalpataruconstructions.in",
-  supportPhone: "+91 22 4021 5566",
-  address: "12th Floor, Blueprint House, Bandra Kurla Complex, Mumbai 400051",
-  instagram: "https://instagram.com/kalpataruconstructions",
-  linkedin: "https://linkedin.com/company/kalpataruconstructions",
-  facebook: "https://facebook.com/kalpataruconstructions",
-  maintenanceMode: false,
-};
-
 interface StoreShape {
-  cities: City[];
-  projects: Project[];
-  services: Service[];
-  blogs: Blog[];
-  careers: CareerPost[];
-  testimonials: Testimonial[];
-  awards: Award[];
+  cities: WithId<City>[];
+  projects: WithId<Project>[];
+  services: WithId<Service>[];
+  blogs: WithId<Blog>[];
+  careers: WithId<CareerPost>[];
+  testimonials: WithId<Testimonial>[];
+  awards: WithId<Award>[];
   inquiries: Inquiry[];
   applications: JobApplication[];
   users: AdminUser[];
   settings: SiteSettings;
 }
 
-function seedStore(): StoreShape {
-  return {
-    cities: seedCities,
-    projects: seedProjects,
-    services: seedServices,
-    blogs: seedBlogs,
-    careers: seedCareers,
-    testimonials: seedTestimonials,
-    awards: seedAwards,
-    inquiries: seedInquiries,
-    applications: seedApplications,
-    users: seedUsers,
-    settings: seedSettings,
-  };
+const emptySettings: SiteSettings = {
+  companyName: "Kalpataru Constructions",
+  tagline: "Building What Lasts",
+  supportEmail: "",
+  supportPhone: "",
+  address: "",
+  instagram: "",
+  linkedin: "",
+  facebook: "",
+  maintenanceMode: false,
+};
+
+const emptyStore: StoreShape = {
+  cities: [],
+  projects: [],
+  services: [],
+  blogs: [],
+  careers: [],
+  testimonials: [],
+  awards: [],
+  inquiries: [],
+  applications: [],
+  users: [],
+  settings: emptySettings,
+};
+
+function idOf(item: { _id?: string; id?: string }) {
+  return item._id ?? item.id ?? "";
 }
 
-function loadStore(): StoreShape {
-  if (typeof window === "undefined") return seedStore();
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return seedStore();
-    const parsed = JSON.parse(raw);
-    return { ...seedStore(), ...parsed };
-  } catch {
-    return seedStore();
-  }
-}
-
-function makeId(prefix: string) {
-  return `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+function withClientId<T extends { _id?: string; id?: string }>(items: T[]) {
+  return items.map((item) => ({ ...item, id: item.id ?? item._id ?? "" }));
 }
 
 function slugify(value: string) {
@@ -266,9 +145,14 @@ function slugify(value: string) {
     .replace(/(^-|-$)/g, "");
 }
 
+function makeId(prefix: string) {
+  return `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+}
+
 interface AdminDataContextValue extends StoreShape {
   ready: boolean;
   resetToSeed: () => void;
+  refresh: () => Promise<void>;
   upsertCity: (city: City, originalSlug?: string) => void;
   removeCity: (slug: string) => void;
   upsertProject: (project: Project, originalSlug?: string) => void;
@@ -293,209 +177,219 @@ interface AdminDataContextValue extends StoreShape {
 const AdminDataContext = createContext<AdminDataContextValue | null>(null);
 
 export function AdminDataProvider({ children }: { children: React.ReactNode }) {
-  const [store, setStore] = useState<StoreShape>(seedStore());
+  const [store, setStore] = useState<StoreShape>(emptyStore);
   const [ready, setReady] = useState(false);
 
+  const refresh = useCallback(async () => {
+    const hasToken = Boolean(getToken());
+    const [
+      citiesData,
+      projectsData,
+      servicesData,
+      blogsData,
+      careersData,
+      testimonialsData,
+      awardsData,
+      inquiriesData,
+      applicationsData,
+      settingsData,
+      usersData,
+    ] = await Promise.all([
+      apiFetch<{ cities: WithId<City>[] }>("/cities", { auth: false }),
+      apiFetch<{ projects: WithId<Project>[] }>("/projects", { auth: false }),
+      apiFetch<{ services: WithId<Service>[] }>("/services", { auth: false }),
+      apiFetch<{ blogs: WithId<Blog>[] }>("/blogs", { auth: false }),
+      apiFetch<{ careers: WithId<CareerPost>[] }>("/careers", { auth: false }),
+      apiFetch<{ testimonials: WithId<Testimonial>[] }>("/testimonials", { auth: false }),
+      apiFetch<{ awards: WithId<Award>[] }>("/awards", { auth: false }),
+      hasToken ? apiFetch<{ inquiries: Inquiry[] }>("/inquiries").catch(() => ({ inquiries: [] })) : Promise.resolve({ inquiries: [] }),
+      hasToken ? apiFetch<{ applications: JobApplication[] }>("/careers/applications/all").catch(() => ({ applications: [] })) : Promise.resolve({ applications: [] }),
+      apiFetch<{ settings: SiteSettings }>("/settings", { auth: false }).catch(() => ({ settings: emptySettings })),
+      hasToken ? apiFetch<{ users: AdminUser[] }>("/auth/users").catch(() => ({ users: [] })) : Promise.resolve({ users: [] }),
+    ]);
+
+    setStore({
+      cities: withClientId(citiesData.cities),
+      projects: withClientId(projectsData.projects),
+      services: withClientId(servicesData.services),
+      blogs: withClientId(blogsData.blogs),
+      careers: withClientId(careersData.careers),
+      testimonials: withClientId(testimonialsData.testimonials),
+      awards: withClientId(awardsData.awards),
+      inquiries: withClientId(inquiriesData.inquiries),
+      applications: withClientId(applicationsData.applications),
+      settings: { ...emptySettings, ...settingsData.settings },
+      users: withClientId(usersData.users),
+    });
+  }, []);
+
   useEffect(() => {
-    setStore(loadStore());
-    setReady(true);
-  }, []);
+    refresh().finally(() => setReady(true));
+  }, [refresh]);
 
-  const persist = useCallback((next: StoreShape) => {
-    setStore(next);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    }
-  }, []);
-
-  const resetToSeed = useCallback(() => {
-    persist(seedStore());
-  }, [persist]);
-
-  const upsertCity = useCallback(
-    (city: City, originalSlug?: string) => {
-      persist({
-        ...store,
-        cities: originalSlug
-          ? store.cities.map((c) => (c.slug === originalSlug ? city : c))
-          : [city, ...store.cities],
-      });
+  const runAndRefresh = useCallback(
+    async (task: () => Promise<unknown>) => {
+      await task();
+      await refresh();
     },
-    [store, persist]
+    [refresh]
   );
 
-  const removeCity = useCallback(
-    (slug: string) => persist({ ...store, cities: store.cities.filter((c) => c.slug !== slug) }),
-    [store, persist]
-  );
+  const upsertCity = useCallback((city: City, originalSlug?: string) => {
+    void runAndRefresh(() =>
+      originalSlug
+        ? apiFetch(`/cities/${originalSlug}`, { method: "PUT", body: JSON.stringify(city) })
+        : apiFetch("/cities", { method: "POST", body: JSON.stringify(city) })
+    );
+  }, [runAndRefresh]);
 
-  const upsertProject = useCallback(
-    (project: Project, originalSlug?: string) => {
-      persist({
-        ...store,
-        projects: originalSlug
-          ? store.projects.map((p) => (p.slug === originalSlug ? project : p))
-          : [project, ...store.projects],
-      });
-    },
-    [store, persist]
-  );
+  const removeCity = useCallback((slug: string) => {
+    void runAndRefresh(() => apiFetch(`/cities/${slug}`, { method: "DELETE" }));
+  }, [runAndRefresh]);
 
-  const removeProject = useCallback(
-    (slug: string) => persist({ ...store, projects: store.projects.filter((p) => p.slug !== slug) }),
-    [store, persist]
-  );
+  const upsertProject = useCallback((project: Project, originalSlug?: string) => {
+    void runAndRefresh(() =>
+      originalSlug
+        ? apiFetch(`/projects/${originalSlug}`, { method: "PUT", body: JSON.stringify(project) })
+        : apiFetch("/projects", { method: "POST", body: JSON.stringify(project) })
+    );
+  }, [runAndRefresh]);
 
-  const upsertService = useCallback(
-    (service: Service, originalSlug?: string) => {
-      persist({
-        ...store,
-        services: originalSlug
-          ? store.services.map((s) => (s.slug === originalSlug ? service : s))
-          : [service, ...store.services],
-      });
-    },
-    [store, persist]
-  );
+  const removeProject = useCallback((slug: string) => {
+    void runAndRefresh(() => apiFetch(`/projects/${slug}`, { method: "DELETE" }));
+  }, [runAndRefresh]);
 
-  const removeService = useCallback(
-    (slug: string) => persist({ ...store, services: store.services.filter((s) => s.slug !== slug) }),
-    [store, persist]
-  );
+  const upsertService = useCallback((service: Service, originalSlug?: string) => {
+    void runAndRefresh(() =>
+      originalSlug
+        ? apiFetch(`/services/${originalSlug}`, { method: "PUT", body: JSON.stringify(service) })
+        : apiFetch("/services", { method: "POST", body: JSON.stringify(service) })
+    );
+  }, [runAndRefresh]);
 
-  const upsertBlog = useCallback(
-    (blog: Blog, originalSlug?: string) => {
-      persist({
-        ...store,
-        blogs: originalSlug ? store.blogs.map((b) => (b.slug === originalSlug ? blog : b)) : [blog, ...store.blogs],
-      });
-    },
-    [store, persist]
-  );
+  const removeService = useCallback((slug: string) => {
+    void runAndRefresh(() => apiFetch(`/services/${slug}`, { method: "DELETE" }));
+  }, [runAndRefresh]);
 
-  const removeBlog = useCallback(
-    (slug: string) => persist({ ...store, blogs: store.blogs.filter((b) => b.slug !== slug) }),
-    [store, persist]
-  );
+  const upsertBlog = useCallback((blog: Blog, originalSlug?: string) => {
+    void runAndRefresh(() =>
+      originalSlug
+        ? apiFetch(`/blogs/${originalSlug}`, { method: "PUT", body: JSON.stringify(blog) })
+        : apiFetch("/blogs", { method: "POST", body: JSON.stringify(blog) })
+    );
+  }, [runAndRefresh]);
 
-  const upsertCareer = useCallback(
-    (career: CareerPost, originalSlug?: string) => {
-      persist({
-        ...store,
-        careers: originalSlug
-          ? store.careers.map((c) => (c.slug === originalSlug ? career : c))
-          : [career, ...store.careers],
-      });
-    },
-    [store, persist]
-  );
+  const removeBlog = useCallback((slug: string) => {
+    void runAndRefresh(() => apiFetch(`/blogs/${slug}`, { method: "DELETE" }));
+  }, [runAndRefresh]);
 
-  const removeCareer = useCallback(
-    (slug: string) => persist({ ...store, careers: store.careers.filter((c) => c.slug !== slug) }),
-    [store, persist]
-  );
+  const upsertCareer = useCallback((career: CareerPost, originalSlug?: string) => {
+    void runAndRefresh(() =>
+      originalSlug
+        ? apiFetch(`/careers/${originalSlug}`, { method: "PUT", body: JSON.stringify(career) })
+        : apiFetch("/careers", { method: "POST", body: JSON.stringify(career) })
+    );
+  }, [runAndRefresh]);
 
-  const upsertTestimonial = useCallback(
-    (testimonial: Testimonial, index?: number) => {
-      const next = [...store.testimonials];
-      if (index !== undefined) next[index] = testimonial;
-      else next.unshift(testimonial);
-      persist({ ...store, testimonials: next });
-    },
-    [store, persist]
-  );
+  const removeCareer = useCallback((slug: string) => {
+    void runAndRefresh(() => apiFetch(`/careers/${slug}`, { method: "DELETE" }));
+  }, [runAndRefresh]);
 
-  const removeTestimonial = useCallback(
-    (index: number) => persist({ ...store, testimonials: store.testimonials.filter((_, i) => i !== index) }),
-    [store, persist]
-  );
+  const upsertTestimonial = useCallback((testimonial: Testimonial, index?: number) => {
+    const existing = index === undefined ? undefined : store.testimonials[index];
+    const existingId = existing ? idOf(existing) : "";
+    void runAndRefresh(() =>
+      existingId
+        ? apiFetch(`/testimonials/${existingId}`, { method: "PUT", body: JSON.stringify(testimonial) })
+        : apiFetch("/testimonials", { method: "POST", body: JSON.stringify(testimonial) })
+    );
+  }, [runAndRefresh, store.testimonials]);
 
-  const upsertAward = useCallback(
-    (award: Award, index?: number) => {
-      const next = [...store.awards];
-      if (index !== undefined) next[index] = award;
-      else next.unshift(award);
-      persist({ ...store, awards: next });
-    },
-    [store, persist]
-  );
+  const removeTestimonial = useCallback((index: number) => {
+    const existingId = idOf(store.testimonials[index] ?? {});
+    if (!existingId) return;
+    void runAndRefresh(() => apiFetch(`/testimonials/${existingId}`, { method: "DELETE" }));
+  }, [runAndRefresh, store.testimonials]);
 
-  const removeAward = useCallback(
-    (index: number) => persist({ ...store, awards: store.awards.filter((_, i) => i !== index) }),
-    [store, persist]
-  );
+  const upsertAward = useCallback((award: Award, index?: number) => {
+    const existing = index === undefined ? undefined : store.awards[index];
+    const existingId = existing ? idOf(existing) : "";
+    void runAndRefresh(() =>
+      existingId
+        ? apiFetch(`/awards/${existingId}`, { method: "PUT", body: JSON.stringify(award) })
+        : apiFetch("/awards", { method: "POST", body: JSON.stringify(award) })
+    );
+  }, [runAndRefresh, store.awards]);
 
-  const updateInquiryStatus = useCallback(
-    (id: string, status: InquiryStatus) =>
-      persist({ ...store, inquiries: store.inquiries.map((i) => (i.id === id ? { ...i, status } : i)) }),
-    [store, persist]
-  );
+  const removeAward = useCallback((index: number) => {
+    const existingId = idOf(store.awards[index] ?? {});
+    if (!existingId) return;
+    void runAndRefresh(() => apiFetch(`/awards/${existingId}`, { method: "DELETE" }));
+  }, [runAndRefresh, store.awards]);
 
-  const removeInquiry = useCallback(
-    (id: string) => persist({ ...store, inquiries: store.inquiries.filter((i) => i.id !== id) }),
-    [store, persist]
-  );
+  const updateInquiryStatus = useCallback((id: string, status: InquiryStatus) => {
+    void runAndRefresh(() => apiFetch(`/inquiries/${id}/status`, { method: "PUT", body: JSON.stringify({ status }) }));
+  }, [runAndRefresh]);
 
-  const updateApplicationStatus = useCallback(
-    (id: string, status: JobApplication["status"]) =>
-      persist({ ...store, applications: store.applications.map((a) => (a.id === id ? { ...a, status } : a)) }),
-    [store, persist]
-  );
+  const removeInquiry = useCallback((id: string) => {
+    void runAndRefresh(() => apiFetch(`/inquiries/${id}`, { method: "DELETE" }));
+  }, [runAndRefresh]);
 
-  const updateSettings = useCallback(
-    (settings: SiteSettings) => persist({ ...store, settings }),
-    [store, persist]
-  );
+  const updateApplicationStatus = useCallback((id: string, status: JobApplication["status"]) => {
+    void runAndRefresh(() => apiFetch(`/careers/applications/${id}/status`, { method: "PUT", body: JSON.stringify({ status }) }));
+  }, [runAndRefresh]);
 
-  const value = useMemo<AdminDataContextValue>(
-    () => ({
-      ...store,
-      ready,
-      resetToSeed,
-      upsertCity,
-      removeCity,
-      upsertProject,
-      removeProject,
-      upsertService,
-      removeService,
-      upsertBlog,
-      removeBlog,
-      upsertCareer,
-      removeCareer,
-      upsertTestimonial,
-      removeTestimonial,
-      upsertAward,
-      removeAward,
-      updateInquiryStatus,
-      removeInquiry,
-      updateApplicationStatus,
-      updateSettings,
-      makeSlug: slugify,
-    }),
-    [
-      store,
-      ready,
-      resetToSeed,
-      upsertCity,
-      removeCity,
-      upsertProject,
-      removeProject,
-      upsertService,
-      removeService,
-      upsertBlog,
-      removeBlog,
-      upsertCareer,
-      removeCareer,
-      upsertTestimonial,
-      removeTestimonial,
-      upsertAward,
-      removeAward,
-      updateInquiryStatus,
-      removeInquiry,
-      updateApplicationStatus,
-      updateSettings,
-    ]
-  );
+  const updateSettings = useCallback((settings: SiteSettings) => {
+    void runAndRefresh(() => apiFetch("/settings", { method: "PUT", body: JSON.stringify(settings) }));
+  }, [runAndRefresh]);
+
+  const value = useMemo<AdminDataContextValue>(() => ({
+    ...store,
+    ready,
+    resetToSeed: refresh,
+    refresh,
+    upsertCity,
+    removeCity,
+    upsertProject,
+    removeProject,
+    upsertService,
+    removeService,
+    upsertBlog,
+    removeBlog,
+    upsertCareer,
+    removeCareer,
+    upsertTestimonial,
+    removeTestimonial,
+    upsertAward,
+    removeAward,
+    updateInquiryStatus,
+    removeInquiry,
+    updateApplicationStatus,
+    updateSettings,
+    makeSlug: slugify,
+  }), [
+    store,
+    ready,
+    refresh,
+    upsertCity,
+    removeCity,
+    upsertProject,
+    removeProject,
+    upsertService,
+    removeService,
+    upsertBlog,
+    removeBlog,
+    upsertCareer,
+    removeCareer,
+    upsertTestimonial,
+    removeTestimonial,
+    upsertAward,
+    removeAward,
+    updateInquiryStatus,
+    removeInquiry,
+    updateApplicationStatus,
+    updateSettings,
+  ]);
 
   return <AdminDataContext.Provider value={value}>{children}</AdminDataContext.Provider>;
 }

@@ -7,6 +7,7 @@ import { ArrowLeft, Save, Trash2 } from "lucide-react";
 import { useAdminData, type Service } from "@/lib/store";
 import { useToast } from "@/lib/toast";
 import PageHeader from "@/components/admin/PageHeader";
+import AdminModal from "@/components/admin/AdminModal";
 import { Field, TextInput, TextArea, FormSection } from "@/components/admin/Field";
 
 const emptyService: Service = { slug: "", name: "", tagline: "", description: "", capabilities: [], image: "" };
@@ -53,12 +54,7 @@ export default function ServiceFormPage() {
   }
 
   return (
-    <div>
-      <Link href="/services" className="text-sm text-charcoal/55 hover:text-safety-dim inline-flex items-center gap-1.5 mb-4">
-        <ArrowLeft size={15} /> Back to services
-      </Link>
-      <PageHeader eyebrow="Content" title={isNew ? "New service" : `Edit ${existing?.name}`} />
-
+    <AdminModal title={isNew ? "New service" : `Edit ${existing?.name}`} onClose={() => router.push("/services")} maxWidth="max-w-2xl">
       <form onSubmit={handleSubmit} className="flex flex-col gap-6 max-w-2xl">
         <FormSection title="Service details">
           <div className="grid sm:grid-cols-2 gap-4">
@@ -129,6 +125,6 @@ export default function ServiceFormPage() {
           </Link>
         </div>
       </form>
-    </div>
+    </AdminModal>
   );
 }

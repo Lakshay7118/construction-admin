@@ -7,6 +7,7 @@ import { ArrowLeft, Save, Trash2, Plus } from "lucide-react";
 import { useAdminData, type CareerPost } from "@/lib/store";
 import { useToast } from "@/lib/toast";
 import PageHeader from "@/components/admin/PageHeader";
+import AdminModal from "@/components/admin/AdminModal";
 import { Field, TextInput, TextArea, Select, FormSection } from "@/components/admin/Field";
 
 const emptyCareer: CareerPost = { slug: "", title: "", location: "", type: "Full-time", description: "", responsibilities: [] };
@@ -45,12 +46,7 @@ export default function CareerFormPage() {
   }
 
   return (
-    <div>
-      <Link href="/careers" className="text-sm text-charcoal/55 hover:text-safety-dim inline-flex items-center gap-1.5 mb-4">
-        <ArrowLeft size={15} /> Back to careers
-      </Link>
-      <PageHeader eyebrow="Content" title={isNew ? "New role" : `Edit ${existing?.title}`} />
-
+    <AdminModal title={isNew ? "New role" : `Edit ${existing?.title}`} onClose={() => router.push("/careers")} maxWidth="max-w-2xl">
       <form onSubmit={handleSubmit} className="flex flex-col gap-6 max-w-2xl">
         <FormSection title="Role details">
           <div className="grid sm:grid-cols-2 gap-4">
@@ -116,6 +112,6 @@ export default function CareerFormPage() {
           </Link>
         </div>
       </form>
-    </div>
+    </AdminModal>
   );
 }

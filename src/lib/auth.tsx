@@ -1,26 +1,29 @@
 "use client";
 
 /**
- * Mock authentication for the admin frontend.
- *
- * There is no backend yet, so this simply gates the /admin shell behind a
- * hardcoded demo credential and remembers the "session" in localStorage.
- * Replace `login()` with a real API call (and the stored flag with an
- * httpOnly session/JWT check) once the backend is wired up.
+ * Admin authentication backed by the Express API.
  */
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { apiFetch, clearToken, setToken, TOKEN_KEY } from "./api";
 
 const SESSION_KEY = "kc-admin-session";
 
 export const DEMO_EMAIL = "admin@kalpataru.co.in";
 export const DEMO_PASSWORD = "buildwhatlasts";
 
+interface AdminUser {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
 interface AuthContextValue {
   isAuthenticated: boolean;
   isLoading: boolean;
   adminName: string;
-  login: (email: string, password: string) => { ok: boolean; error?: string };
+  login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   logout: () => void;
 }
 
@@ -29,29 +32,45 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [adminName, setAdminName] = useState("Admin");
 
   useEffect(() => {
-    const flag = typeof window !== "undefined" && window.localStorage.getItem(SESSION_KEY);
-    setIsAuthenticated(flag === "true");
+    const token = typeof window !== "undefined" && window.localStorage.getItem(TOKEN_KEY);
+    const savedName = typeof window !== "undefined" && window.localStorage.getItem(SESSION_KEY);
+    setIsAuthenticated(Boolean(token));
+    if (savedName) setAdminName(savedName);
     setIsLoading(false);
   }, []);
 
-  const login = useCallback((email: string, password: string) => {
-    if (email.trim().toLowerCase() === DEMO_EMAIL && password === DEMO_PASSWORD) {
-      window.localStorage.setItem(SESSION_KEY, "true");
+  const login = useCallback(async (email: string, password: string) => {
+    try {
+      const data = await apiFetch<{ token: string; user: AdminUser }>("/auth/login", {
+        method: "POST",
+        auth: false,
+        body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
+      });
+      setToken(data.token);
+      window.localStorage.setItem(SESSION_KEY, data.user.name);
+      setAdminName(data.user.name);
       setIsAuthenticated(true);
       return { ok: true };
+    } catch (error) {
+      return {
+        ok: false,
+        error: error instanceof Error ? error.message : "That email and password don't match our records.",
+      };
     }
-    return { ok: false, error: "That email and password don't match our records." };
   }, []);
 
   const logout = useCallback(() => {
+    clearToken();
     window.localStorage.removeItem(SESSION_KEY);
     setIsAuthenticated(false);
+    setAdminName("Admin");
   }, []);
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, isLoading, adminName: "Meera Iyer", login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, isLoading, adminName, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
