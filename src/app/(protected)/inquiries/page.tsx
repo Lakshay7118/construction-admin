@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Inbox, Trash2, X, Mail, Phone, MapPin, Wallet } from "lucide-react";
+import { Inbox, Trash2, X, Mail, Phone, MapPin, Wallet, RefreshCw } from "lucide-react";
 import { useAdminData, type Inquiry, type InquiryStatus } from "@/lib/store";
 import { useToast } from "@/lib/toast";
 import PageHeader from "@/components/admin/PageHeader";
@@ -21,11 +21,24 @@ function formatDate(iso: string) {
 }
 
 export default function InquiriesPage() {
-  const { inquiries, updateInquiryStatus, removeInquiry, ready } = useAdminData();
+  const { inquiries, updateInquiryStatus, removeInquiry, refresh, ready } = useAdminData();
   const { showToast } = useToast();
   const [statusFilter, setStatusFilter] = useState("all");
   const [selected, setSelected] = useState<Inquiry | null>(null);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refresh();
+      showToast("Inquiries refreshed");
+    } catch (err) {
+      showToast("Failed to refresh inquiries");
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const filtered = useMemo(
     () => inquiries.filter((i) => statusFilter === "all" || i.status === statusFilter).sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt)),
@@ -40,6 +53,16 @@ export default function InquiriesPage() {
         eyebrow="Leads"
         title="Inquiries"
         description="Submissions from the quote request and contact forms."
+        action={
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="inline-flex items-center gap-2 border border-charcoal/20 bg-white hover:bg-charcoal/[0.04] text-charcoal px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-50"
+          >
+            <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
+            Refresh
+          </button>
+        }
       />
 
       <div className="flex gap-2 mb-5">

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, Pencil, Trash2, Building2, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, Building2, Search, RefreshCw } from "lucide-react";
 import { useAdminData } from "@/lib/store";
 import { useToast } from "@/lib/toast";
 import PageHeader from "@/components/admin/PageHeader";
@@ -12,12 +12,25 @@ import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import { Select } from "@/components/admin/Field";
 
 export default function ProjectsPage() {
-  const { projects, cities, removeProject, ready } = useAdminData();
+  const { projects, cities, removeProject, refresh, ready } = useAdminData();
   const { showToast } = useToast();
   const [query, setQuery] = useState("");
   const [cityFilter, setCityFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refresh();
+      showToast("Projects refreshed");
+    } catch (err) {
+      showToast("Failed to refresh projects");
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const filtered = useMemo(() => {
     return projects.filter((p) => {
@@ -37,12 +50,22 @@ export default function ProjectsPage() {
         title="Projects"
         description="Every project shown on the public projects page and city pages."
         action={
-          <Link
-            href="/projects/new"
-            className="inline-flex items-center gap-2 bg-charcoal text-concrete px-4 py-2.5 text-sm font-medium hover:bg-safety transition-colors"
-          >
-            <Plus size={16} /> New project
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="inline-flex items-center gap-2 border border-charcoal/20 bg-white hover:bg-charcoal/[0.04] text-charcoal px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
+              Refresh
+            </button>
+            <Link
+              href="/projects/new"
+              className="inline-flex items-center gap-2 bg-charcoal text-concrete px-4 py-2.5 text-sm font-medium hover:bg-safety transition-colors"
+            >
+              <Plus size={16} /> New project
+            </Link>
+          </div>
         }
       />
 

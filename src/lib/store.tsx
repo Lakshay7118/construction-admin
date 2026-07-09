@@ -63,6 +63,7 @@ export interface JobApplication {
   email: string;
   phone: string;
   resumeFileName: string;
+  resumeUrl?: string; // Cloudinary URL of the uploaded document
   coverNote: string;
   status: "new" | "shortlisted" | "rejected" | "hired";
   createdAt: string;

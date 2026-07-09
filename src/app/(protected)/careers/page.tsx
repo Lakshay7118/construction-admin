@@ -1,8 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, Pencil, Trash2, Briefcase, MapPin } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Briefcase,
+  MapPin,
+  X,
+  Mail,
+  Phone,
+  FileText,
+  Download,
+  ExternalLink,
+  MessageSquare,
+  User,
+  Clock,
+  RefreshCw,
+} from "lucide-react";
 import { useAdminData, type JobApplication } from "@/lib/store";
 import { useToast } from "@/lib/toast";
 import PageHeader from "@/components/admin/PageHeader";
@@ -11,18 +27,49 @@ import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import Badge from "@/components/Badge";
 import { Select } from "@/components/admin/Field";
 
-const appStatusTone: Record<JobApplication["status"], "safety" | "warn" | "ok" | "neutral"> = {
+const appStatusTone: Record<
+  JobApplication["status"],
+  "safety" | "warn" | "ok" | "neutral"
+> = {
   new: "safety",
   shortlisted: "warn",
   hired: "ok",
   rejected: "neutral",
 };
 
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleString("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
 export default function CareersPage() {
-  const { careers, applications, removeCareer, updateApplicationStatus, ready } = useAdminData();
+  const { careers, applications, removeCareer, updateApplicationStatus, refresh, ready } =
+    useAdminData();
   const { showToast } = useToast();
   const [tab, setTab] = useState<"roles" | "applicants">("roles");
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  const [selected, setSelected] = useState<JobApplication | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refresh();
+      showToast("Careers data refreshed");
+    } catch (err) {
+      showToast("Failed to refresh careers");
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  // Keep the selected application in sync when status is updated
+  const selectedSynced = useMemo(() => {
+    if (!selected) return null;
+    return applications.find((a) => a.id === selected.id) ?? null;
+  }, [applications, selected]);
 
   if (!ready) return null;
 
@@ -33,11 +80,24 @@ export default function CareersPage() {
         title="Careers"
         description="Open roles on the public careers page, and applicants who've applied."
         action={
-          tab === "roles" ? (
-            <Link href="/careers/new" className="inline-flex items-center gap-2 bg-charcoal text-concrete px-4 py-2.5 text-sm font-medium hover:bg-safety transition-colors">
-              <Plus size={16} /> New role
-            </Link>
-          ) : undefined
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="inline-flex items-center gap-2 border border-charcoal/20 bg-white hover:bg-charcoal/[0.04] text-charcoal px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
+              Refresh
+            </button>
+            {tab === "roles" && (
+              <Link
+                href="/careers/new"
+                className="inline-flex items-center gap-2 bg-charcoal text-concrete px-4 py-2.5 text-sm font-medium hover:bg-safety transition-colors"
+              >
+                <Plus size={16} /> New role
+              </Link>
+            )}
+          </div>
         }
       />
 
@@ -47,10 +107,14 @@ export default function CareersPage() {
             key={t}
             onClick={() => setTab(t)}
             className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              tab === t ? "border-safety text-charcoal" : "border-transparent text-charcoal/50 hover:text-charcoal"
+              tab === t
+                ? "border-safety text-charcoal"
+                : "border-transparent text-charcoal/50 hover:text-charcoal"
             }`}
           >
-            {t === "roles" ? `Open roles (${careers.length})` : `Applicants (${applications.length})`}
+            {t === "roles"
+              ? `Open roles (${careers.length})`
+              : `Applicants (${applications.length})`}
           </button>
         ))}
       </div>
@@ -61,7 +125,10 @@ export default function CareersPage() {
         ) : (
           <div className="flex flex-col gap-3">
             {careers.map((c) => (
-              <div key={c.slug} className="flex items-start gap-4 bg-white border border-charcoal/12 rounded-sm p-4">
+              <div
+                key={c.slug}
+                className="flex items-start gap-4 bg-white border border-charcoal/12 rounded-sm p-4"
+              >
                 <div className="flex-1 min-w-0">
                   <div className="font-display text-base mb-1">{c.title}</div>
                   <div className="flex items-center gap-3 text-xs text-charcoal/50 mb-2 font-mono">
@@ -70,13 +137,23 @@ export default function CareersPage() {
                     </span>
                     <span>{c.type}</span>
                   </div>
-                  <p className="text-sm text-charcoal/65 line-clamp-1">{c.description}</p>
+                  <p className="text-sm text-charcoal/65 line-clamp-1">
+                    {c.description}
+                  </p>
                 </div>
                 <div className="flex flex-col gap-1 shrink-0">
-                  <Link href={`/careers/${c.slug}`} className="p-2 text-charcoal/50 hover:text-blueprint transition-colors" aria-label={`Edit ${c.title}`}>
+                  <Link
+                    href={`/careers/${c.slug}`}
+                    className="p-2 text-charcoal/50 hover:text-blueprint transition-colors"
+                    aria-label={`Edit ${c.title}`}
+                  >
                     <Pencil size={16} />
                   </Link>
-                  <button onClick={() => setPendingDelete(c.slug)} className="p-2 text-charcoal/50 hover:text-safety-dim transition-colors" aria-label={`Delete ${c.title}`}>
+                  <button
+                    onClick={() => setPendingDelete(c.slug)}
+                    className="p-2 text-charcoal/50 hover:text-safety-dim transition-colors"
+                    aria-label={`Delete ${c.title}`}
+                  >
                     <Trash2 size={16} />
                   </button>
                 </div>
@@ -99,21 +176,33 @@ export default function CareersPage() {
             </thead>
             <tbody className="divide-y divide-charcoal/8">
               {applications.map((a) => (
-                <tr key={a.id} className="hover:bg-charcoal/[0.02]">
+                <tr
+                  key={a.id}
+                  className="hover:bg-charcoal/[0.02] cursor-pointer transition-colors"
+                  onClick={() => setSelected(a)}
+                >
                   <td className="px-5 py-3.5">
-                    <div className="font-medium">{a.name}</div>
-                    <div className="text-xs text-charcoal/45">{a.resumeFileName}</div>
+                    <div className="font-medium text-blueprint hover:underline">
+                      {a.name}
+                    </div>
+                    <div className="text-xs text-charcoal/45 mt-0.5 flex items-center gap-1">
+                      <FileText size={11} />
+                      {a.resumeFileName}
+                    </div>
                   </td>
                   <td className="px-5 py-3.5 text-charcoal/70">{a.roleTitle}</td>
                   <td className="px-5 py-3.5 text-charcoal/60 text-xs">
                     <div>{a.email}</div>
                     <div>{a.phone}</div>
                   </td>
-                  <td className="px-5 py-3.5">
+                  <td className="px-5 py-3.5" onClick={(e) => e.stopPropagation()}>
                     <Select
                       value={a.status}
                       onChange={(e) => {
-                        updateApplicationStatus(a.id, e.target.value as JobApplication["status"]);
+                        updateApplicationStatus(
+                          a.id,
+                          e.target.value as JobApplication["status"]
+                        );
                         showToast("Applicant status updated");
                       }}
                       className="!w-auto !py-1.5 !text-xs"
@@ -128,6 +217,191 @@ export default function CareersPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* ── Applicant Detail Right Panel ── */}
+      {selectedSynced && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-charcoal/50"
+            onClick={() => setSelected(null)}
+          />
+
+          {/* Panel */}
+          <div className="relative bg-concrete w-full max-w-md h-full overflow-y-auto scroll-thin p-6 shadow-xl flex flex-col gap-0">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="font-display text-lg">Application detail</h3>
+              <button
+                onClick={() => setSelected(null)}
+                className="p-1 text-charcoal/50 hover:text-charcoal"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Name + badge */}
+            <div className="mb-5">
+              <div className="font-display text-xl mb-2">
+                {selectedSynced.name}
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge tone={appStatusTone[selectedSynced.status]}>
+                  {selectedSynced.status}
+                </Badge>
+                <span className="text-xs font-mono text-charcoal/45 bg-charcoal/[0.05] border border-charcoal/10 px-2 py-0.5 rounded-sm">
+                  {selectedSynced.roleTitle}
+                </span>
+              </div>
+            </div>
+
+            {/* Contact info */}
+            <div className="flex flex-col gap-3 text-sm mb-6">
+              <div className="flex items-center gap-2.5 text-charcoal/70">
+                <Mail size={15} className="text-charcoal/40 shrink-0" />
+                <a
+                  href={`mailto:${selectedSynced.email}`}
+                  className="hover:text-blueprint transition-colors truncate"
+                >
+                  {selectedSynced.email}
+                </a>
+              </div>
+              <div className="flex items-center gap-2.5 text-charcoal/70">
+                <Phone size={15} className="text-charcoal/40 shrink-0" />
+                <a
+                  href={`tel:${selectedSynced.phone}`}
+                  className="hover:text-blueprint transition-colors"
+                >
+                  {selectedSynced.phone}
+                </a>
+              </div>
+              <div className="flex items-center gap-2.5 text-charcoal/70">
+                <User size={15} className="text-charcoal/40 shrink-0" />
+                Applying for:{" "}
+                <span className="font-medium text-charcoal">
+                  {selectedSynced.roleTitle}
+                </span>
+              </div>
+              {selectedSynced.createdAt && (
+                <div className="flex items-center gap-2.5 text-charcoal/50 text-xs font-mono">
+                  <Clock size={13} className="text-charcoal/35 shrink-0" />
+                  Applied {formatDate(selectedSynced.createdAt)}
+                </div>
+              )}
+            </div>
+
+            {/* Resume / Document */}
+            <div className="mb-6">
+              <div className="text-xs font-mono uppercase tracking-wide text-charcoal/45 mb-2">
+                Resume / Document
+              </div>
+              {selectedSynced.resumeUrl ? (() => {
+                const fname  = selectedSynced.resumeFileName ?? "";
+                const ext    = fname.split(".").pop()?.toLowerCase() ?? "";
+                const isPdf  = ext === "pdf";
+
+                // Build a Cloudinary fl_attachment URL to force download
+                const dlUrl = selectedSynced.resumeUrl.replace(
+                  "/raw/upload/",
+                  "/raw/upload/fl_attachment/"
+                );
+
+                return (
+                  <div className="bg-white border border-charcoal/12 rounded-sm p-4 flex items-start gap-3">
+                    <div className="flex-shrink-0 w-10 h-10 bg-blueprint/10 rounded-sm flex items-center justify-center">
+                      <FileText size={18} className="text-blueprint" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-charcoal truncate mb-0.5">
+                        {fname}
+                      </div>
+                      <div className="text-xs text-charcoal/45 font-mono mb-3 flex items-center gap-1.5">
+                        <span className="uppercase bg-blueprint/10 text-blueprint px-1.5 py-0.5 rounded-sm font-bold">
+                          {ext || "file"}
+                        </span>
+                        Uploaded to Cloudinary
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {isPdf ? (
+                          /* PDF → open inline in browser */
+                          <a
+                            href={selectedSynced.resumeUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 text-xs font-medium text-blueprint hover:text-safety-dim transition-colors border border-blueprint/20 bg-blueprint/5 px-3 py-1.5 rounded-sm"
+                          >
+                            <ExternalLink size={12} /> View PDF
+                          </a>
+                        ) : (
+                          /* DOCX / DOC → can't view inline, show info */
+                          <span className="inline-flex items-center gap-1.5 text-xs text-charcoal/45 italic">
+                            <ExternalLink size={11} /> Preview not available for {ext.toUpperCase()} files
+                          </span>
+                        )}
+
+                        {/* Download — always show, forces correct filename via fl_attachment */}
+                        <a
+                          href={dlUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-xs font-medium text-charcoal hover:text-safety-dim transition-colors border border-charcoal/15 bg-charcoal/[0.04] px-3 py-1.5 rounded-sm"
+                        >
+                          <Download size={12} /> Download
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })() : (
+                <div className="bg-white border border-charcoal/12 rounded-sm p-4 flex items-center gap-3">
+                  <div className="flex-shrink-0 w-10 h-10 bg-charcoal/[0.04] rounded-sm flex items-center justify-center">
+                    <FileText size={18} className="text-charcoal/30" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm text-charcoal/70 truncate">
+                      {selectedSynced.resumeFileName || "No document uploaded"}
+                    </div>
+                    <div className="text-xs text-charcoal/40 mt-0.5">
+                      Document URL not available (submitted without Cloudinary
+                      upload)
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Cover Note */}
+            {selectedSynced.coverNote && (
+              <div className="mb-6">
+                <div className="text-xs font-mono uppercase tracking-wide text-charcoal/45 mb-2 flex items-center gap-1.5">
+                  <MessageSquare size={12} /> Cover note
+                </div>
+                <p className="text-sm text-charcoal/75 leading-relaxed bg-white border border-charcoal/12 rounded-sm p-4 whitespace-pre-line">
+                  {selectedSynced.coverNote}
+                </p>
+              </div>
+            )}
+
+            {/* Update Status */}
+            <div className="flex flex-col gap-2 mt-auto pt-4 border-t border-charcoal/10">
+              <span className="text-sm font-medium">Update status</span>
+              <Select
+                value={selectedSynced.status}
+                onChange={(e) => {
+                  const status = e.target.value as JobApplication["status"];
+                  updateApplicationStatus(selectedSynced.id, status);
+                  showToast("Applicant status updated");
+                }}
+              >
+                <option value="new">New</option>
+                <option value="shortlisted">Shortlisted</option>
+                <option value="hired">Hired</option>
+                <option value="rejected">Rejected</option>
+              </Select>
+            </div>
+          </div>
         </div>
       )}
 
