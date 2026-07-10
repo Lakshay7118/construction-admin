@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Inbox, Trash2, X, Mail, Phone, MapPin, Wallet, RefreshCw } from "lucide-react";
 import { useAdminData, type Inquiry, type InquiryStatus } from "@/lib/store";
 import { useToast } from "@/lib/toast";
@@ -27,12 +27,20 @@ export default function InquiriesPage() {
   const [selected, setSelected] = useState<Inquiry | null>(null);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  // Reset to page 1 when status filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
       await refresh();
       showToast("Inquiries refreshed");
+      setCurrentPage(1);
     } catch (err) {
       showToast("Failed to refresh inquiries");
     } finally {
@@ -43,6 +51,12 @@ export default function InquiriesPage() {
   const filtered = useMemo(
     () => inquiries.filter((i) => statusFilter === "all" || i.status === statusFilter).sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt)),
     [inquiries, statusFilter]
+  );
+
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const paginatedInquiries = filtered.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
   );
 
   if (!ready) return null;
@@ -91,7 +105,7 @@ export default function InquiriesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-charcoal/8">
-                {filtered.map((i) => (
+                {paginatedInquiries.map((i) => (
                   <tr key={i.id} className="hover:bg-charcoal/[0.02] cursor-pointer" onClick={() => setSelected(i)}>
                     <td className="px-5 py-3.5">
                       <div className="font-medium">{i.name}</div>
@@ -128,6 +142,35 @@ export default function InquiriesPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-5 py-4 border-t border-charcoal/12 bg-charcoal/[0.01]">
+              <div className="text-xs font-mono text-charcoal/50">
+                Showing {Math.min((currentPage - 1) * itemsPerPage + 1, filtered.length)}–
+                {Math.min(currentPage * itemsPerPage, filtered.length)} of {filtered.length} entries
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((p) => p - 1)}
+                  className="px-3 py-1.5 text-xs font-medium border border-charcoal/15 bg-white hover:bg-charcoal/[0.04] transition-colors disabled:opacity-40 disabled:hover:bg-white"
+                >
+                  Previous
+                </button>
+                <span className="text-xs font-mono text-charcoal/60 px-2">
+                  {currentPage} of {totalPages}
+                </span>
+                <button
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((p) => p + 1)}
+                  className="px-3 py-1.5 text-xs font-medium border border-charcoal/15 bg-white hover:bg-charcoal/[0.04] transition-colors disabled:opacity-40 disabled:hover:bg-white"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -201,6 +244,9 @@ export default function InquiriesPage() {
           if (pendingDelete) {
             removeInquiry(pendingDelete);
             showToast("Inquiry deleted");
+            if (paginatedInquiries.length === 1 && currentPage > 1) {
+              setCurrentPage((p) => p - 1);
+            }
           }
           setPendingDelete(null);
           setSelected(null);

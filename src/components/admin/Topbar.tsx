@@ -8,7 +8,7 @@ import { useAdminData } from "@/lib/store";
 
 export default function Topbar({ title, onMenuClick }: { title: string; onMenuClick: () => void }) {
   const { adminName, logout } = useAuth();
-  const { inquiries, applications, refresh } = useAdminData();
+  const { inquiries, applications, refresh, markAllNotificationsAsRead } = useAdminData();
   const [menuOpen, setMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const router = useRouter();
@@ -100,13 +100,26 @@ export default function Topbar({ title, onMenuClick }: { title: string; onMenuCl
                       {notificationCount ? `${notificationCount} new item${notificationCount === 1 ? "" : "s"}` : "All caught up"}
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => void refresh()}
-                    className="text-xs font-mono uppercase tracking-wide text-blueprint hover:text-safety-dim"
-                  >
-                    Refresh
-                  </button>
+                  <div className="flex items-center gap-3">
+                    {notificationCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await markAllNotificationsAsRead();
+                        }}
+                        className="text-xs font-mono uppercase tracking-wide text-safety hover:text-safety-dim"
+                      >
+                        Mark Read
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => void refresh()}
+                      className="text-xs font-mono uppercase tracking-wide text-blueprint hover:text-safety-dim"
+                    >
+                      Refresh
+                    </button>
+                  </div>
                 </div>
                 {notificationCount === 0 ? (
                   <div className="px-4 py-8 text-center text-sm text-charcoal/50">No new inquiries or applicants.</div>

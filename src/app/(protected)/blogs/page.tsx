@@ -15,18 +15,27 @@ export default function BlogsPage() {
   const { showToast } = useToast();
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
       await refresh();
       showToast("Journal posts refreshed");
+      setCurrentPage(1);
     } catch (err) {
       showToast("Failed to refresh posts");
     } finally {
       setRefreshing(false);
     }
   };
+
+  const totalPages = Math.ceil(blogs.length / itemsPerPage);
+  const paginatedBlogs = blogs.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   if (!ready) return null;
 
@@ -68,7 +77,7 @@ export default function BlogsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-charcoal/8">
-              {blogs.map((b) => (
+              {paginatedBlogs.map((b) => (
                 <tr key={b.slug} className="hover:bg-charcoal/[0.02]">
                   <td className="px-5 py-3.5">
                     <div className="font-medium max-w-xs truncate">{b.title}</div>
@@ -92,6 +101,35 @@ export default function BlogsPage() {
               ))}
             </tbody>
           </table>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-5 py-4 border-t border-charcoal/12 bg-charcoal/[0.01]">
+              <div className="text-xs font-mono text-charcoal/50">
+                Showing {Math.min((currentPage - 1) * itemsPerPage + 1, blogs.length)}–
+                {Math.min(currentPage * itemsPerPage, blogs.length)} of {blogs.length} entries
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((p) => p - 1)}
+                  className="px-3 py-1.5 text-xs font-medium border border-charcoal/15 bg-white hover:bg-charcoal/[0.04] transition-colors disabled:opacity-40 disabled:hover:bg-white"
+                >
+                  Previous
+                </button>
+                <span className="text-xs font-mono text-charcoal/60 px-2">
+                  {currentPage} of {totalPages}
+                </span>
+                <button
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((p) => p + 1)}
+                  className="px-3 py-1.5 text-xs font-medium border border-charcoal/15 bg-white hover:bg-charcoal/[0.04] transition-colors disabled:opacity-40 disabled:hover:bg-white"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -104,6 +142,10 @@ export default function BlogsPage() {
           if (pendingDelete) {
             removeBlog(pendingDelete);
             showToast("Post deleted");
+            // Adjust current page if last item deleted on the last page
+            if (paginatedBlogs.length === 1 && currentPage > 1) {
+              setCurrentPage((p) => p - 1);
+            }
           }
           setPendingDelete(null);
         }}
@@ -111,3 +153,4 @@ export default function BlogsPage() {
     </div>
   );
 }
+

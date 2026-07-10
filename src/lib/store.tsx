@@ -173,7 +173,9 @@ interface AdminDataContextValue extends StoreShape {
   updateApplicationStatus: (id: string, status: JobApplication["status"]) => void;
   updateSettings: (settings: SiteSettings) => void;
   makeSlug: (value: string) => string;
+  markAllNotificationsAsRead: () => Promise<void>;
 }
+
 
 const AdminDataContext = createContext<AdminDataContextValue | null>(null);
 
@@ -352,6 +354,30 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
     void runAndRefresh(() => apiFetch("/settings", { method: "PUT", body: JSON.stringify(settings) }));
   }, [runAndRefresh]);
 
+  const markAllNotificationsAsRead = useCallback(async () => {
+    const newInquiries = store.inquiries.filter((item) => item.status === "new");
+    const newApplications = store.applications.filter((item) => item.status === "new");
+
+    if (newInquiries.length === 0 && newApplications.length === 0) return;
+
+    await Promise.all([
+      ...newInquiries.map((item) =>
+        apiFetch(`/inquiries/${idOf(item)}/status`, {
+          method: "PUT",
+          body: JSON.stringify({ status: "in-progress" }),
+        })
+      ),
+      ...newApplications.map((item) =>
+        apiFetch(`/careers/applications/${idOf(item)}/status`, {
+          method: "PUT",
+          body: JSON.stringify({ status: "shortlisted" }),
+        })
+      ),
+    ]);
+
+    await refresh();
+  }, [store.inquiries, store.applications, refresh]);
+
   const value = useMemo<AdminDataContextValue>(() => ({
     ...store,
     ready,
@@ -376,6 +402,7 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
     updateApplicationStatus,
     updateSettings,
     makeSlug: slugify,
+    markAllNotificationsAsRead,
   }), [
     store,
     ready,
@@ -398,7 +425,9 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
     removeInquiry,
     updateApplicationStatus,
     updateSettings,
+    markAllNotificationsAsRead,
   ]);
+
 
   return <AdminDataContext.Provider value={value}>{children}</AdminDataContext.Provider>;
 }
